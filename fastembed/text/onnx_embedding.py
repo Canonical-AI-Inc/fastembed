@@ -224,7 +224,7 @@ class OnnxTextEmbedding(TextEmbeddingBase):
         )
 
         # List of Execution Providers: https://onnxruntime.ai/docs/execution-providers
-        onnx_providers = ["CPUExecutionProvider"]
+        onnx_providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
         so = ort.SessionOptions()
         so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
