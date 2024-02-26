@@ -134,6 +134,15 @@ supported_onnx_models = [
             "hf": "qdrant/gte-large-onnx",
         },
     },
+    {
+        "model": "thenlper/gte-small",
+        "dim": 384,
+        "description": "Small general text embeddings model",
+        "size_in_GB": 0.07,
+        "sources": {
+            "hf": "qdrant/gte-small-onnx",
+        },
+    },
     # {
     #     "model": "sentence-transformers/all-MiniLM-L6-v2",
     #     "dim": 384,
@@ -210,7 +219,9 @@ class OnnxTextEmbedding(TextEmbeddingBase):
         self._model_dir = self.download_model(self._model_description, self._cache_dir)
         self._max_length = 512
 
-        model_path = locate_model_file(self._model_dir, ["model.onnx", "model_optimized.onnx"])
+        model_path = locate_model_file(
+            self._model_dir, ["model.onnx", "model_optimized.onnx"]
+        )
 
         # List of Execution Providers: https://onnxruntime.ai/docs/execution-providers
         onnx_providers = ["CPUExecutionProvider"]
@@ -222,8 +233,12 @@ class OnnxTextEmbedding(TextEmbeddingBase):
             so.intra_op_num_threads = self.threads
             so.inter_op_num_threads = self.threads
 
-        self.tokenizer = load_tokenizer(model_dir=self._model_dir, max_length=self._max_length)
-        self.model = ort.InferenceSession(str(model_path), providers=onnx_providers, sess_options=so)
+        self.tokenizer = load_tokenizer(
+            model_dir=self._model_dir, max_length=self._max_length
+        )
+        self.model = ort.InferenceSession(
+            str(model_path), providers=onnx_providers, sess_options=so
+        )
 
     def embed(
         self,
@@ -264,12 +279,16 @@ class OnnxTextEmbedding(TextEmbeddingBase):
             for batch in iter_batch(documents, batch_size):
                 yield from self._post_process_onnx_output(self.onnx_embed(batch))
         else:
-            start_method = "forkserver" if "forkserver" in get_all_start_methods() else "spawn"
+            start_method = (
+                "forkserver" if "forkserver" in get_all_start_methods() else "spawn"
+            )
             params = {
                 "model_name": self.model_name,
                 "cache_dir": str(self._cache_dir),
             }
-            pool = ParallelWorkerPool(parallel, self._get_worker_class(), start_method=start_method)
+            pool = ParallelWorkerPool(
+                parallel, self._get_worker_class(), start_method=start_method
+            )
             for batch in pool.ordered_map(iter_batch(documents, batch_size), **params):
                 yield from self._post_process_onnx_output(batch)
 
@@ -277,7 +296,9 @@ class OnnxTextEmbedding(TextEmbeddingBase):
     def _get_worker_class(cls) -> Type["EmbeddingWorker"]:
         return OnnxTextEmbeddingWorker
 
-    def _preprocess_onnx_input(self, onnx_input: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    def _preprocess_onnx_input(
+        self, onnx_input: Dict[str, np.ndarray]
+    ) -> Dict[str, np.ndarray]:
         """
         Preprocess the onnx input.
         """
@@ -296,7 +317,9 @@ class OnnxTextEmbedding(TextEmbeddingBase):
         onnx_input = {
             "input_ids": np.array(input_ids, dtype=np.int64),
             "attention_mask": np.array(attention_mask, dtype=np.int64),
-            "token_type_ids": np.array([np.zeros(len(e), dtype=np.int64) for e in input_ids], dtype=np.int64),
+            "token_type_ids": np.array(
+                [np.zeros(len(e), dtype=np.int64) for e in input_ids], dtype=np.int64
+            ),
         }
 
         onnx_input = self._preprocess_onnx_input(onnx_input)
